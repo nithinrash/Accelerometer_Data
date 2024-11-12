@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Faall Detection</title>
+  <title>Fall Detection</title>
 </head>
 <body>
-  <h1>Flall Detection</h1>
+  <h1>Fall Detection</h1>
   
   <h2>Accelerometer</h2>
   <p>X: <span id="accel-x">0</span></p>
@@ -41,15 +41,15 @@
     var database = firebase.database();
 
     // Threshold values for fall detection
-    const FREE_FALL_THRESHOLD = 1; // m/s², for free fall
-    const IMPACT_THRESHOLD = -10;   // m/s², for impact
+    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration in m/s²
+    const IMPACT_THRESHOLD = 15;    // Reduced impact threshold in m/s²
 
     let inFreeFall = false;
 
     function requestPermission() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
-          .then((response) => {
+          .then(response => {
             if (response === 'granted') {
               startMotionTracking();
             } else {
@@ -66,50 +66,52 @@
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
           const acceleration = event.accelerationIncludingGravity;
+
           if (acceleration) {
             const x = acceleration.x || 0;
             const y = acceleration.y || 0;
             const z = acceleration.z || 0;
 
+            // Update displayed values
             document.getElementById('accel-x').textContent = x.toFixed(2);
             document.getElementById('accel-y').textContent = y.toFixed(2);
             document.getElementById('accel-z').textContent = z.toFixed(2);
 
+            // Calculate total acceleration
             const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
 
+            // Detect free fall
             if (totalAcceleration < FREE_FALL_THRESHOLD) {
               inFreeFall = true;
-            } else if (inFreeFall && totalAcceleration > IMPACT_THRESHOLD) {
+              document.getElementById('alert-message').textContent = "Free fall detected...";
+            } 
+            // Detect impact
+            else if (inFreeFall && totalAcceleration > IMPACT_THRESHOLD) {
               inFreeFall = false;
-              updateFallStatusInFirebase(1);  // Fall detected
+              sendFallDataToFirebase(1, x, y, z);
               document.getElementById('alert-message').textContent = "Fall detected!";
-            } else {
-              updateFallStatusInFirebase(0);  // No fall detected
-              document.getElementById('alert-message').textContent = "Monitoring...";
             }
           }
         });
       } else {
-        alert('DeviceMotionEvent not supported');
+        alert("DeviceMotionEvent not supported on this device.");
       }
     }
 
-    function updateFallStatusInFirebase(fallDetected, x, y, z) {
-      const fallData = {
+    function sendFallDataToFirebase(fallDetected, x, y, z) {
+      // Update Firebase
+      database.ref('fall_detection').set({
         fall_detected: fallDetected,
         x: x.toFixed(2),
         y: y.toFixed(2),
-        z: z.toFixed(2),
-        timestamp: new Date().toISOString()
-      };
-
-      database.ref('fall_detection').set(fallData)
-        .then(() => {
-          alert(`Data sent to Firebase successfully!\nFall Detected);
-        })
-        .catch((error) => {
-          alert("Failed to send data to Firebase: " + error.message);
-        });
+        z: z.toFixed(2)
+      }, (error) => {
+        if (error) {
+          alert("Failed to send data to Firebase.");
+        } else {
+          alert(`Data sent to Firebase:\nFall Detected: ${fallDetected}\nX: ${x.toFixed(2)}, Y: ${y.toFixed(2)}, Z: ${z.toFixed(2)}`);
+        }
+      });
     }
   </script>
 </body>
