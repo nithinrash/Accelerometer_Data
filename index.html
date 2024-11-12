@@ -26,14 +26,14 @@
 
     // Firebase configuration
     var firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      databaseURL: "YOUR_DATABASE_URL",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-      appId: "YOUR_APP_ID",
-      measurementId: "YOUR_MEASUREMENT_ID"
+ apiKey: "AIzaSyCjOfVeknGmtOr9LnRbSvmWNARMzoVV4hw",
+  authDomain: "trial3-6e298.firebaseapp.com",
+  databaseURL: "https://trial3-6e298-default-rtdb.firebaseio.com",
+  projectId: "trial3-6e298",
+  storageBucket: "trial3-6e298.firebasestorage.app",
+  messagingSenderId: "665240996623",
+  appId: "1:665240996623:web:9a09c622a4208d737b4c7a",
+  measurementId: "G-JEL97GBLLV"
     };
     
     // Initialize Firebase
@@ -42,7 +42,7 @@
 
     // Threshold values for fall detection
     const FREE_FALL_THRESHOLD = 1;   // Near zero acceleration in m/s²
-    const IMPACT_THRESHOLD = 15;     // Impact spike in m/s²
+    const IMPACT_THRESHOLD = -10;     // Impact spike in m/s²
     
     let inFreeFall = false;
     let dropDetected = false;
