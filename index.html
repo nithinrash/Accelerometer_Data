@@ -4,11 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fall Detection</title>
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
-
 </head>
 <body>
   <h1>Fall Detection</h1>
@@ -20,32 +15,16 @@
 
   <p id="alert-message" style="color: red;">Status: Monitoring...</p>
 
-  <button id="request-permission">Enable Motion</button>
+  <button id="request-permission" style="display: none;">Enable Motion</button>
 
   <script>
-    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration in m/s²
-    const IMPACT_THRESHOLD = 15;    // Lowered impact spike threshold in m/s²
+    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration in m/s² (free fall)
+    const IMPACT_THRESHOLD = -10;    // Lowered impact spike threshold in m/s²
 
     let inFreeFall = false;
     let dropDetected = false;
 
-    // Your Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyCjOfVeknGmtOr9LnRbSvmWNARMzoVV4hw",
-      authDomain: "trial3-6e298.firebaseapp.com",
-      databaseURL: "https://trial3-6e298-default-rtdb.firebaseio.com",
-      projectId: "trial3-6e298",
-      storageBucket: "trial3-6e298.firebasestorage.app",
-      messagingSenderId: "665240996623",
-      appId: "1:665240996623:web:9a09c622a4208d737b4c7a",
-      measurementId: "G-JEL97GBLLV"
-    };
-
-    // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const database = firebase.database(app);
-
-    // Handle permissions and motion tracking
+    // Request permission for iOS devices (if necessary)
     function requestPermission() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
@@ -58,60 +37,59 @@
           })
           .catch(console.error);
       } else {
-        startMotionTracking(); // No need for permission handling on supported browsers
+        startMotionTracking();
       }
     }
 
-    // Start motion tracking after permission is granted
+    // Start motion tracking (called after permission is granted)
     function startMotionTracking() {
-      // Listen for accelerometer motion events
+      // Listen for device motion events
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
-          const acceleration = event.accelerationIncludingGravity; // Acceleration including gravity
+          const acceleration = event.accelerationIncludingGravity; // Get accelerometer data
 
           if (acceleration) {
             const x = acceleration.x || 0;
             const y = acceleration.y || 0;
             const z = acceleration.z || 0;
 
-            // Display the accelerometer readings in the UI
+            // Display accelerometer data
             document.getElementById('accel-x').textContent = x.toFixed(2);
             document.getElementById('accel-y').textContent = y.toFixed(2);
             document.getElementById('accel-z').textContent = z.toFixed(2);
 
-            // Fall detection logic
+            // Calculate total acceleration magnitude (ignoring direction)
             const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+
+            // Check for free fall
             if (totalAcceleration < FREE_FALL_THRESHOLD) {
-              inFreeFall = true;  // Free fall detected
-              document.getElementById('alert-message').textContent = 'Free fall detected!';
-            } else if (totalAcceleration > IMPACT_THRESHOLD && inFreeFall) {
+              inFreeFall = true;
+            } else if (inFreeFall && totalAcceleration > IMPACT_THRESHOLD) {
+              // If a spike in acceleration occurs after free fall, it's likely an impact
               dropDetected = true;
-              document.getElementById('alert-message').textContent = 'Fall detected!';
-              // Send fall detected status to Firebase
-              firebase.database().ref('fall_detection_status').set({
-                fall_detected: 1
-              });
-              inFreeFall = false;  // Reset fall detection
-            } else {
-              if (!dropDetected) {
-                document.getElementById('alert-message').textContent = 'Status: Monitoring...';
-                firebase.database().ref('fall_detection_status').set({
-                  fall_detected: 0
-                });
-              }
+              alert('Fall Detected!');
+              document.getElementById('alert-message').textContent = 'Fall Detected!';
+              document.getElementById('alert-message').style.color = 'red';
+
+              // Reset the fall detection state after detecting the fall
+              inFreeFall = false;
+              dropDetected = false;
             }
           }
         });
       } else {
-        alert('Device motion not supported on this device or browser.');
+        alert('Device motion is not supported on this device.');
       }
     }
 
-    // Button to request motion permission
-    document.getElementById('request-permission').addEventListener('click', () => {
+    // Check if motion events are allowed on the device
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      // Request permission for iOS devices that require it
       requestPermission();
-    });
-
+    } else {
+      // Start motion tracking if permission is granted automatically
+      startMotionTracking();
+    }
   </script>
 </body>
 </html>
