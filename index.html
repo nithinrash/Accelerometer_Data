@@ -53,42 +53,49 @@
             const y = acceleration.y || 0;
             const z = acceleration.z || 0;
 
-            // Display accelerometer values
+            // Display accelerometer data
             document.getElementById('accel-x').textContent = x.toFixed(2);
             document.getElementById('accel-y').textContent = y.toFixed(2);
             document.getElementById('accel-z').textContent = z.toFixed(2);
 
-            // Calculate total acceleration (magnitude)
+            // Calculate total acceleration magnitude (ignoring sign)
             const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
 
-            // Free fall detection: if the acceleration is close to zero
+            // Check if the phone is in free fall (acceleration near zero)
             if (totalAcceleration < FREE_FALL_THRESHOLD && !inFreeFall) {
               inFreeFall = true;
-              console.log('Free fall detected');
+              dropDetected = false; // Reset drop detection during free fall
             }
 
-            // Impact detection: if there's a sudden spike in acceleration after free fall
+            // If free fall has ended and acceleration spikes (indicating impact)
             if (inFreeFall && totalAcceleration > IMPACT_THRESHOLD && !dropDetected) {
               dropDetected = true;
-              alert('Fall detected!');
-              document.getElementById('alert-message').textContent = 'Fall detected!';
+              inFreeFall = false; // End free fall detection
+              document.getElementById('alert-message').textContent = 'Fall Detected!';
+              alert('Fall Detected!');
+            }
 
-              // Reset after a short period to detect another fall
+            // Reset alert if no fall is detected
+            if (!inFreeFall && dropDetected) {
               setTimeout(() => {
-                dropDetected = false;
-                inFreeFall = false;
+                dropDetected = false;  // Reset fall detection after a brief delay
                 document.getElementById('alert-message').textContent = 'Status: Monitoring...';
-              }, 3000); // Reset after 3 seconds
+              }, 2000); // 2 seconds delay before resetting the status
             }
           }
         });
       } else {
-        alert('Device motion is not supported on this device.');
+        alert('DeviceMotionEvent is not supported on this device.');
       }
     }
 
-    // Initialize motion tracking
-    requestPermission();
+    // Trigger permission request when the page is loaded (if needed for iOS)
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      document.getElementById('request-permission').style.display = 'block';
+      document.getElementById('request-permission').addEventListener('click', requestPermission);
+    } else {
+      startMotionTracking(); // Automatically start motion tracking if no permission is required
+    }
   </script>
 </body>
 </html>
