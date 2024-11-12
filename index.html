@@ -23,9 +23,9 @@
   <button id="request-permission" style="display: none;">Enable Motion</button>
 
   <script>
-    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration in m/s²
-    const ROTATION_THRESHOLD = 3;   // Rotation rate threshold in rad/s
-    const IMPACT_THRESHOLD = 20;    // Impact spike in m/s²
+    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration in m/s² (indicating free fall)
+    const ROTATION_THRESHOLD = 3;   // Rotation rate threshold in rad/s (indicating flipping or fast movement)
+    const IMPACT_THRESHOLD = 20;    // Impact spike threshold in m/s² (indicating a hard fall)
 
     let inFreeFall = false;
     let dropDetected = false;
@@ -50,65 +50,66 @@
     function startMotionTracking() {
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
-          const accel = event.accelerationIncludingGravity;
-          const x = accel.x || 0;
-          const y = accel.y || 0;
-          const z = accel.z || 0;
+          const acceleration = event.accelerationIncludingGravity;
+          const rotation = event.rotationRate;
 
-          // Calculate total acceleration magnitude
-          const totalAccel = Math.sqrt(x * x + y * y + z * z);
+          if (acceleration) {
+            // Get accelerometer values (X, Y, Z)
+            const accelX = acceleration.x || 0;
+            const accelY = acceleration.y || 0;
+            const accelZ = acceleration.z || 0;
 
-          // Display accelerometer values
-          document.getElementById('accel-x').textContent = x.toFixed(2);
-          document.getElementById('accel-y').textContent = y.toFixed(2);
-          document.getElementById('accel-z').textContent = z.toFixed(2);
+            // Display accelerometer values
+            document.getElementById('accel-x').textContent = accelX.toFixed(2);
+            document.getElementById('accel-y').textContent = accelY.toFixed(2);
+            document.getElementById('accel-z').textContent = accelZ.toFixed(2);
 
-          // Check for free fall (near-zero total acceleration)
-          if (totalAccel < FREE_FALL_THRESHOLD) {
-            inFreeFall = true;
-            document.getElementById('alert-message').textContent = 'Status: Free fall detected!';
-          } else if (inFreeFall && totalAccel > IMPACT_THRESHOLD) {
-            // If previously in free fall and now there's a spike in acceleration, assume impact
-            dropDetected = true;
-            document.getElementById('alert-message').textContent = 'Alert: Fall detected!';
-            alert("Fall detected!");
-            inFreeFall = false;  // Reset free fall status
-          } else {
-            // Reset if no significant event
-            inFreeFall = false;
+            // Calculate total acceleration magnitude
+            const totalAcceleration = Math.sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
+
+            // Check for free fall (near zero acceleration)
+            if (totalAcceleration < FREE_FALL_THRESHOLD) {
+              inFreeFall = true;
+            } else if (inFreeFall && totalAcceleration > IMPACT_THRESHOLD) {
+              // If we were in free fall and now the acceleration spikes (impact)
+              dropDetected = true;
+              showFallAlert("Fall Detected!");
+              inFreeFall = false;
+            }
+          }
+
+          if (rotation) {
+            // Get gyroscope values (rotation around X, Y, Z axes)
+            const gyroAlpha = rotation.alpha || 0;
+            const gyroBeta = rotation.beta || 0;
+            const gyroGamma = rotation.gamma || 0;
+
+            // Display gyroscope values
+            document.getElementById('gyro-alpha').textContent = gyroAlpha.toFixed(2);
+            document.getElementById('gyro-beta').textContent = gyroBeta.toFixed(2);
+            document.getElementById('gyro-gamma').textContent = gyroGamma.toFixed(2);
+
+            // Detect rapid rotation (indicating flipping)
+            if (Math.abs(gyroAlpha) > ROTATION_THRESHOLD || Math.abs(gyroBeta) > ROTATION_THRESHOLD || Math.abs(gyroGamma) > ROTATION_THRESHOLD) {
+              if (!dropDetected) {
+                showFallAlert("Fall Detected (Rapid Movement)!");
+              }
+            }
           }
         });
-      }
-
-      // Gyroscope event listener for rotation detection
-      if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', (event) => {
-          const alpha = event.alpha || 0;
-          const beta = event.beta || 0;
-          const gamma = event.gamma || 0;
-
-          // Display gyroscope values
-          document.getElementById('gyro-alpha').textContent = alpha.toFixed(2);
-          document.getElementById('gyro-beta').textContent = beta.toFixed(2);
-          document.getElementById('gyro-gamma').textContent = gamma.toFixed(2);
-
-          // Check for high rotation rate (flipping detection)
-          if (Math.abs(alpha) > ROTATION_THRESHOLD ||
-              Math.abs(beta) > ROTATION_THRESHOLD ||
-              Math.abs(gamma) > ROTATION_THRESHOLD) {
-            document.getElementById('alert-message').textContent = 'Status: Flipping detected!';
-          }
-        });
+      } else {
+        alert('DeviceMotionEvent is not supported on this device.');
       }
     }
 
-    // Show the button on iOS
-    if (typeof DeviceMotionEvent.requestPermission === 'function') {
-      document.getElementById('request-permission').style.display = 'block';
-      document.getElementById('request-permission').onclick = requestPermission;
-    } else {
-      startMotionTracking();
+    function showFallAlert(message) {
+      // Display fall detection message
+      document.getElementById('alert-message').textContent = message;
     }
+
+    // Automatically request permission on iOS (for newer versions)
+    requestPermission();
+
   </script>
 </body>
 </html>
