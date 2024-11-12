@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fall Detection</title>
+  <title>Fall Detection with GPS</title>
 </head>
 <body>
-  <h1>Fall Detection</h1>
+  <h1>Fall Detection with GPS</h1>
   
   <h2>Accelerometer</h2>
   <p>X: <span id="accel-x">0</span></p>
@@ -26,7 +26,7 @@
 
     // Firebase configuration
     var firebaseConfig = {
-   apiKey: "AIzaSyDjcy8zJ9paOMEKS9FY7rbqAmBModNM6qs",
+    apiKey: "AIzaSyDjcy8zJ9paOMEKS9FY7rbqAmBModNM6qs",
     authDomain: "tracc-7c485.firebaseapp.com",
     projectId: "tracc-7c485",
     storageBucket: "tracc-7c485.firebasestorage.app",
@@ -40,13 +40,32 @@
     var database = firebase.database();
 
     // Threshold values for fall detection
-    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration in m/s²
+    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration
     const IMPACT_THRESHOLD = 15;    // Impact threshold in m/s²
 
     let inFreeFall = false;
     let dropDetected = false;
+    let latitude = null;
+    let longitude = null;
 
-    // Request permission for iOS devices
+    // Request location permission and get GPS coordinates
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            latitude = position.coords.latitude;
+            longitude = position.coords.longitude;
+          },
+          (error) => {
+            console.error("Error obtaining location:", error);
+          }
+        );
+      } else {
+        console.log("Geolocation is not supported by this browser.");
+      }
+    }
+
+    // Request motion permission for iOS
     function requestPermission() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
@@ -63,53 +82,68 @@
       }
     }
 
-    // Start motion tracking
+    // Start tracking device motion
     function startMotionTracking() {
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
           const acceleration = event.accelerationIncludingGravity;
+
           if (acceleration) {
             const x = acceleration.x || 0;
             const y = acceleration.y || 0;
             const z = acceleration.z || 0;
 
-            // Update the displayed accelerometer values
+            // Display accelerometer values
             document.getElementById('accel-x').textContent = x.toFixed(2);
             document.getElementById('accel-y').textContent = y.toFixed(2);
             document.getElementById('accel-z').textContent = z.toFixed(2);
 
-            // Calculate total acceleration
             const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
 
-            // Check for free fall
             if (totalAcceleration < FREE_FALL_THRESHOLD) {
               inFreeFall = true;
-            }
-
-            // Check for impact after free fall
-            if (inFreeFall && totalAcceleration > IMPACT_THRESHOLD) {
+            } else if (inFreeFall && totalAcceleration > IMPACT_THRESHOLD) {
               inFreeFall = false;
               dropDetected = true;
-              document.getElementById('alert-message').textContent = 'Fall Detected!';
-              
-              // Update Firebase and reset after alert
-              database.ref('fall_detection').set({ fall_detected: 1 }, (error) => {
-                if (error) {
-                  alert('Error sending data to Firebase.');
-                } else {
-                  alert(`Fall detected data sent successfully: fall_detected=1`);
-                  // Reset to monitoring
-                  document.getElementById('alert-message').textContent = 'Status: Monitoring...';
-                  database.ref('fall_detection').set({ fall_detected: 0 });
-                  dropDetected = false;
-                }
-              });
+              updateFallStatus();
             }
           }
         });
-      } else {
-        alert('DeviceMotionEvent is not supported on this device.');
       }
+    }
+
+    // Update fall status in Firebase
+    function updateFallStatus() {
+      getLocation();  // Get GPS coordinates when a fall is detected
+      const fallStatus = {
+        fall_detected: 1,
+        latitude: latitude,
+        longitude: longitude
+      };
+      
+      database.ref('fallStatus').set(fallStatus, (error) => {
+        if (error) {
+          console.error("Failed to update fall status:", error);
+        } else {
+          alert(`Fall detected! Data sent to Firebase:\nLatitude: ${latitude}\nLongitude: ${longitude}`);
+          resetMonitoring();
+        }
+      });
+    }
+
+    // Reset to monitoring mode after alert
+    function resetMonitoring() {
+      document.getElementById('alert-message').textContent = 'Status: Monitoring...';
+      const resetStatus = { fall_detected: 0 };
+      
+      database.ref('fallStatus').update(resetStatus, (error) => {
+        if (error) {
+          console.error("Failed to reset fall status:", error);
+        } else {
+          console.log("Monitoring reset in Firebase");
+        }
+      });
+      dropDetected = false;
     }
   </script>
 </body>
