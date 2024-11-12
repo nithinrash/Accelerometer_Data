@@ -3,17 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Accelerometer Data</title>
+  <title>Accelerometer and Gyroscope Data</title>
 </head>
 <body>
-  <h1>Accelerometer Readings</h1>
+  <h1>Sensor Readings</h1>
+  
+  <h2>Accelerometer</h2>
   <p>X: <span id="accel-x">0</span></p>
   <p>Y: <span id="accel-y">0</span></p>
   <p>Z: <span id="accel-z">0</span></p>
+
+  <h2>Gyroscope</h2>
+  <p>Alpha (Z-axis rotation): <span id="gyro-alpha">0</span></p>
+  <p>Beta (X-axis rotation): <span id="gyro-beta">0</span></p>
+  <p>Gamma (Y-axis rotation): <span id="gyro-gamma">0</span></p>
+
   <button id="request-permission" style="display: none;">Enable Motion</button>
 
   <script>
     function startMotionTracking() {
+      // Accelerometer
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
           const acceleration = event.acceleration;
@@ -24,29 +33,37 @@
           }
         });
       } else {
-        alert("DeviceMotionEvent is not supported on this device.");
+        alert('Accelerometer is not supported on this device.');
+      }
+
+      // Gyroscope
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', (event) => {
+          const alpha = event.alpha;   // Rotation around Z-axis (in degrees)
+          const beta = event.beta;     // Rotation around X-axis (in degrees)
+          const gamma = event.gamma;   // Rotation around Y-axis (in degrees)
+
+          // Display gyroscope values
+          document.getElementById('gyro-alpha').textContent = alpha?.toFixed(2) || '0';
+          document.getElementById('gyro-beta').textContent = beta?.toFixed(2) || '0';
+          document.getElementById('gyro-gamma').textContent = gamma?.toFixed(2) || '0';
+        });
+      } else {
+        alert('Gyroscope is not supported on this device.');
       }
     }
 
-    if (typeof DeviceMotionEvent.requestPermission === 'function') {
-      // Show a button for requesting permission (for iOS 13+)
-      const button = document.getElementById('request-permission');
-      button.style.display = 'block';
-      button.addEventListener('click', () => {
-        DeviceMotionEvent.requestPermission()
-          .then((response) => {
-            if (response === 'granted') {
-              startMotionTracking();
-              button.style.display = 'none';
-            } else {
-              alert('Permission denied.');
-            }
-          })
-          .catch(console.error);
-      });
-    } else {
-      // Start tracking immediately if no explicit permission is required
+    // Start motion tracking after user interaction on mobile (for permission)
+    document.getElementById('request-permission').addEventListener('click', function() {
       startMotionTracking();
+      this.style.display = 'none'; // Hide button after permission is granted
+    });
+
+    // If permission is required, show a button to start tracking
+    if (window.DeviceMotionEvent || window.DeviceOrientationEvent) {
+      document.getElementById('request-permission').style.display = 'block';
+    } else {
+      startMotionTracking(); // Start tracking if permissions aren't needed
     }
   </script>
 </body>
