@@ -3,25 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Accelerometer and Gyroscope Data</title>
+  <title>Drop Detection</title>
 </head>
 <body>
-  <h1>Sensor Readings</h1>
-  
-  <h2>Accelerometer</h2>
+  <h1>Accelerometer Drop Detection</h1>
   <p>X: <span id="accel-x">0</span></p>
   <p>Y: <span id="accel-y">0</span></p>
   <p>Z: <span id="accel-z">0</span></p>
-
-  <h2>Gyroscope</h2>
-  <p>Alpha (Z-axis rotation): <span id="gyro-alpha">0</span></p>
-  <p>Beta (X-axis rotation): <span id="gyro-beta">0</span></p>
-  <p>Gamma (Y-axis rotation): <span id="gyro-gamma">0</span></p>
+  <p id="alert-message" style="color: red;"></p>
 
   <button id="request-permission" style="display: none;">Enable Motion</button>
 
   <script>
-    // Request permission for iOS
     function requestPermission() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
@@ -34,44 +27,51 @@
           })
           .catch(console.error);
       } else {
-        // Start directly for devices that don't need permission
         startMotionTracking();
       }
     }
 
     function startMotionTracking() {
-      // Accelerometer data
+      const threshold = 15; // Adjust threshold as needed for sensitivity
+      let dropDetected = false;
+
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
-          const acceleration = event.acceleration;
+          const acceleration = event.accelerationIncludingGravity;
           if (acceleration) {
-            document.getElementById('accel-x').textContent = acceleration.x?.toFixed(2) || '0';
-            document.getElementById('accel-y').textContent = acceleration.y?.toFixed(2) || '0';
-            document.getElementById('accel-z').textContent = acceleration.z?.toFixed(2) || '0';
+            const x = acceleration.x || 0;
+            const y = acceleration.y || 0;
+            const z = acceleration.z || 0;
+
+            // Display accelerometer values
+            document.getElementById('accel-x').textContent = x.toFixed(2);
+            document.getElementById('accel-y').textContent = y.toFixed(2);
+            document.getElementById('accel-z').textContent = z.toFixed(2);
+
+            // Calculate total acceleration (ignoring sign)
+            const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+
+            // Check for free fall (very low acceleration) followed by impact (very high acceleration)
+            if (totalAcceleration < 0.5) {
+              dropDetected = true;
+            } else if (dropDetected && totalAcceleration > threshold) {
+              document.getElementById('alert-message').textContent = "Drop detected!";
+              alert("The phone was likely dropped!");
+              dropDetected = false;
+            }
           }
         });
       } else {
-        alert('Accelerometer is not supported on this device.');
-      }
-
-      // Gyroscope data
-      if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', (event) => {
-          document.getElementById('gyro-alpha').textContent = event.alpha?.toFixed(2) || '0';
-          document.getElementById('gyro-beta').textContent = event.beta?.toFixed(2) || '0';
-          document.getElementById('gyro-gamma').textContent = event.gamma?.toFixed(2) || '0';
-        });
-      } else {
-        alert('Gyroscope is not supported on this device.');
+        alert("Accelerometer is not supported on this device.");
       }
     }
 
-    // Check if permission is needed
+    // Request permission on iOS or start directly on Android
     if (typeof DeviceMotionEvent.requestPermission === 'function') {
       document.getElementById('request-permission').style.display = 'block';
       document.getElementById('request-permission').addEventListener('click', requestPermission);
     } else {
-      startMotionTracking(); // Start tracking directly if no permission is needed
+      startMotionTracking();
     }
   </script>
 </body>
