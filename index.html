@@ -6,7 +6,7 @@
   <title>Fall Detection with GPS</title>
 </head>
 <body>
-  <h1>Fall Detection with GPS</h1>
+  <h1>Fall Detection with GPs</h1>
   
   <h2>Accelerometer</h2>
   <p>X: <span id="accel-x">0</span></p>
@@ -41,7 +41,7 @@
 
     // Threshold values for fall detection
     const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration
-    const IMPACT_THRESHOLD = 15;    // Impact threshold in m/s²
+    const IMPACT_THRESHOLD = -10;    // Impact threshold in m/s²
 
     let inFreeFall = false;
     let dropDetected = false;
