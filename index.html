@@ -6,7 +6,7 @@
   <title>Fall Detection</title>
 </head>
 <body>
-  <h1>Falls Detection</h1>
+  <h1>Fall Detection</h1>
   
   <h2>Accelerometer</h2>
   <p>X: <span id="accel-x">0</span></p>
@@ -104,7 +104,7 @@
             document.getElementById('alert-message').textContent = "Status: Monitoring...";
             sendFallStatusToFirebase(0); // Reset 'fall_detected' status
             dropDetected = false;
-          }, 2);
+          }, 3000);
         }
       }
     }
