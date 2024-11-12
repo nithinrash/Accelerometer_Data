@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enhanced Fall Detection</title>
+  <title>Enhanced Fall Detection with Flip Detection</title>
 </head>
 <body>
-  <h1>Fall Detection</h1>
+  <h1>Fall Detection with Flip Detection</h1>
   
   <h2>Accelerometer</h2>
   <p>X: <span id="accel-x">0</span></p>
@@ -14,15 +14,23 @@
   <p>Z: <span id="accel-z">0</span></p>
 
   <h2>Gyroscope</h2>
-  <p>Alpha (rotation around Z): <span id="gyro-alpha">0</span></p>
-  <p>Beta (rotation around X): <span id="gyro-beta">0</span></p>
-  <p>Gamma (rotation around Y): <span id="gyro-gamma">0</span></p>
+  <p>Alpha (Z-axis rotation): <span id="gyro-alpha">0</span></p>
+  <p>Beta (X-axis rotation): <span id="gyro-beta">0</span></p>
+  <p>Gamma (Y-axis rotation): <span id="gyro-gamma">0</span></p>
 
   <p id="alert-message" style="color: red;">Status: Monitoring...</p>
 
   <button id="request-permission" style="display: none;">Enable Motion</button>
 
   <script>
+    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration in m/s²
+    const ROTATION_THRESHOLD = 3;   // Rotation rate threshold in rad/s
+    const IMPACT_THRESHOLD = 20;    // Impact spike in m/s²
+
+    let inFreeFall = false;
+    let dropDetected = false;
+
+    // Request permission for iOS devices
     function requestPermission() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
@@ -40,70 +48,61 @@
     }
 
     function startMotionTracking() {
-      let isFreeFalling = false;
-      let lastAccelerationMagnitude = 0;
-
-      const freeFallThreshold = 1;  // Near-zero acceleration indicating free fall
-      const impactThreshold = 15;   // Sudden spike indicating impact
-      const rotationThreshold = 180; // High rotation rate to detect flipping
-      const freeFallDurationThreshold = 500; // Minimum time in free fall (ms)
-      
-      let freeFallStartTime = 0;
-
-      // Accelerometer & Gyroscope Event Listener
-      if (window.DeviceMotionEvent && window.DeviceOrientationEvent) {
+      if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
-          const acceleration = event.accelerationIncludingGravity;
-          if (acceleration) {
-            const { x, y, z } = acceleration;
+          const accel = event.accelerationIncludingGravity;
+          const x = accel.x || 0;
+          const y = accel.y || 0;
+          const z = accel.z || 0;
 
-            // Update display
-            document.getElementById('accel-x').textContent = x.toFixed(2);
-            document.getElementById('accel-y').textContent = y.toFixed(2);
-            document.getElementById('accel-z').textContent = z.toFixed(2);
+          // Calculate total acceleration magnitude
+          const totalAccel = Math.sqrt(x * x + y * y + z * z);
 
-            // Calculate the magnitude of the acceleration vector
-            const magnitude = Math.sqrt(x * x + y * y + z * z);
+          // Display accelerometer values
+          document.getElementById('accel-x').textContent = x.toFixed(2);
+          document.getElementById('accel-y').textContent = y.toFixed(2);
+          document.getElementById('accel-z').textContent = z.toFixed(2);
 
-            // Check for free fall
-            if (magnitude < freeFallThreshold && !isFreeFalling) {
-              isFreeFalling = true;
-              freeFallStartTime = Date.now();
-            }
-
-            // Check for impact after free fall
-            if (isFreeFalling && magnitude > impactThreshold) {
-              const freeFallDuration = Date.now() - freeFallStartTime;
-              if (freeFallDuration > freeFallDurationThreshold) {
-                document.getElementById('alert-message').textContent = 'Fall detected!';
-                isFreeFalling = false; // Reset fall detection
-              }
-            }
-
-            // Update last acceleration magnitude
-            lastAccelerationMagnitude = magnitude;
+          // Check for free fall (near-zero total acceleration)
+          if (totalAccel < FREE_FALL_THRESHOLD) {
+            inFreeFall = true;
+            document.getElementById('alert-message').textContent = 'Status: Free fall detected!';
+          } else if (inFreeFall && totalAccel > IMPACT_THRESHOLD) {
+            // If previously in free fall and now there's a spike in acceleration, assume impact
+            dropDetected = true;
+            document.getElementById('alert-message').textContent = 'Alert: Fall detected!';
+            alert("Fall detected!");
+            inFreeFall = false;  // Reset free fall status
+          } else {
+            // Reset if no significant event
+            inFreeFall = false;
           }
         });
+      }
 
+      // Gyroscope event listener for rotation detection
+      if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', (event) => {
-          const { alpha, beta, gamma } = event;
+          const alpha = event.alpha || 0;
+          const beta = event.beta || 0;
+          const gamma = event.gamma || 0;
 
-          // Update display for gyroscope data
+          // Display gyroscope values
           document.getElementById('gyro-alpha').textContent = alpha.toFixed(2);
           document.getElementById('gyro-beta').textContent = beta.toFixed(2);
           document.getElementById('gyro-gamma').textContent = gamma.toFixed(2);
 
-          // Check if the device is flipping rapidly
-          if (Math.abs(beta) > rotationThreshold || Math.abs(gamma) > rotationThreshold) {
-            document.getElementById('alert-message').textContent = 'Rapid flipping detected!';
+          // Check for high rotation rate (flipping detection)
+          if (Math.abs(alpha) > ROTATION_THRESHOLD ||
+              Math.abs(beta) > ROTATION_THRESHOLD ||
+              Math.abs(gamma) > ROTATION_THRESHOLD) {
+            document.getElementById('alert-message').textContent = 'Status: Flipping detected!';
           }
         });
-      } else {
-        alert("DeviceMotionEvent and DeviceOrientationEvent are not supported on this device.");
       }
     }
 
-    // Check if permission is needed
+    // Show the button on iOS
     if (typeof DeviceMotionEvent.requestPermission === 'function') {
       document.getElementById('request-permission').style.display = 'block';
       document.getElementById('request-permission').onclick = requestPermission;
