@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accelerometer Data</title>
+</head>
+<body>
+  <h1>Accelerometer Readings</h1>
+  <p>X: <span id="accel-x">0</span></p>
+  <p>Y: <span id="accel-y">0</span></p>
+  <p>Z: <span id="accel-z">0</span></p>
+  <button id="request-permission" style="display: none;">Enable Motion</button>
+
+  <script>
+    function startMotionTracking() {
+      if (window.DeviceMotionEvent) {
+        window.addEventListener('devicemotion', (event) => {
+          const acceleration = event.acceleration;
+          if (acceleration) {
+            document.getElementById('accel-x').textContent = acceleration.x?.toFixed(2) || '0';
+            document.getElementById('accel-y').textContent = acceleration.y?.toFixed(2) || '0';
+            document.getElementById('accel-z').textContent = acceleration.z?.toFixed(2) || '0';
+          }
+        });
+      } else {
+        alert("DeviceMotionEvent is not supported on this device.");
+      }
+    }
+
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      // Show a button for requesting permission (for iOS 13+)
+      const button = document.getElementById('request-permission');
+      button.style.display = 'block';
+      button.addEventListener('click', () => {
+        DeviceMotionEvent.requestPermission()
+          .then((response) => {
+            if (response === 'granted') {
+              startMotionTracking();
+              button.style.display = 'none';
+            } else {
+              alert('Permission denied.');
+            }
+          })
+          .catch(console.error);
+      });
+    } else {
+      // Start tracking immediately if no explicit permission is required
+      startMotionTracking();
+    }
+  </script>
+</body>
+</html>
