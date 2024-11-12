@@ -42,7 +42,7 @@
 
     // Threshold values for fall detection
     const FREE_FALL_THRESHOLD = 1;   // Near zero acceleration in m/s²
-    const IMPACT_THRESHOLD = 15;     // Detect impact after free fall
+    const IMPACT_THRESHOLD = -10;     // Detect impact after free fall
 
     let inFreeFall = false;
     let dropDetected = false;
@@ -89,6 +89,7 @@
             dropDetected = true;
             inFreeFall = false;  // Reset free fall status
             document.getElementById('alert-message').textContent = "Fall Detected!";
+            
             updateFallStatus(1);  // Update Firebase with fall detected
           } else if (!dropDetected) {
             document.getElementById('alert-message').textContent = "Status: Monitoring...";
