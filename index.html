@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fall Detection</title>
+  <title>Enhanced Fall Detection</title>
 </head>
 <body>
   <h1>Fall Detection</h1>
@@ -14,16 +14,15 @@
   <p>Z: <span id="accel-z">0</span></p>
 
   <h2>Gyroscope</h2>
-  <p>Alpha: <span id="gyro-alpha">0</span></p>
-  <p>Beta: <span id="gyro-beta">0</span></p>
-  <p>Gamma: <span id="gyro-gamma">0</span></p>
+  <p>Alpha (rotation around Z): <span id="gyro-alpha">0</span></p>
+  <p>Beta (rotation around X): <span id="gyro-beta">0</span></p>
+  <p>Gamma (rotation around Y): <span id="gyro-gamma">0</span></p>
 
   <p id="alert-message" style="color: red;">Status: Monitoring...</p>
 
   <button id="request-permission" style="display: none;">Enable Motion</button>
 
   <script>
-    // Request permission for iOS devices
     function requestPermission() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
@@ -41,70 +40,76 @@
     }
 
     function startMotionTracking() {
-      const fallThreshold = 18;  // Threshold for detecting a fall impact (adjust as needed)
+      let isFreeFalling = false;
+      let lastAccelerationMagnitude = 0;
+
       const freeFallThreshold = 1;  // Near-zero acceleration indicating free fall
-      const resetTimeout = 2000; // Time to reset after a fall is detected
+      const impactThreshold = 15;   // Sudden spike indicating impact
+      const rotationThreshold = 180; // High rotation rate to detect flipping
+      const freeFallDurationThreshold = 500; // Minimum time in free fall (ms)
+      
+      let freeFallStartTime = 0;
 
-      let inFreeFall = false;
-
-      // Detect accelerometer events
-      if (window.DeviceMotionEvent) {
+      // Accelerometer & Gyroscope Event Listener
+      if (window.DeviceMotionEvent && window.DeviceOrientationEvent) {
         window.addEventListener('devicemotion', (event) => {
           const acceleration = event.accelerationIncludingGravity;
           if (acceleration) {
-            const x = acceleration.x || 0;
-            const y = acceleration.y || 0;
-            const z = acceleration.z || 0;
+            const { x, y, z } = acceleration;
 
-            // Display accelerometer values
+            // Update display
             document.getElementById('accel-x').textContent = x.toFixed(2);
             document.getElementById('accel-y').textContent = y.toFixed(2);
             document.getElementById('accel-z').textContent = z.toFixed(2);
 
-            // Calculate total acceleration magnitude
-            const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+            // Calculate the magnitude of the acceleration vector
+            const magnitude = Math.sqrt(x * x + y * y + z * z);
 
-            // Check for free fall (near-zero acceleration)
-            if (totalAcceleration < freeFallThreshold) {
-              inFreeFall = true;
-            } 
-            // Check for impact (sudden high acceleration after free fall)
-            else if (inFreeFall && totalAcceleration > fallThreshold) {
-              document.getElementById('alert-message').textContent = "Alert: Fall Detected!";
-              inFreeFall = false;
-
-              // Reset the status after a short delay
-              setTimeout(() => {
-                document.getElementById('alert-message').textContent = "Status: Monitoring...";
-              }, resetTimeout);
+            // Check for free fall
+            if (magnitude < freeFallThreshold && !isFreeFalling) {
+              isFreeFalling = true;
+              freeFallStartTime = Date.now();
             }
+
+            // Check for impact after free fall
+            if (isFreeFalling && magnitude > impactThreshold) {
+              const freeFallDuration = Date.now() - freeFallStartTime;
+              if (freeFallDuration > freeFallDurationThreshold) {
+                document.getElementById('alert-message').textContent = 'Fall detected!';
+                isFreeFalling = false; // Reset fall detection
+              }
+            }
+
+            // Update last acceleration magnitude
+            lastAccelerationMagnitude = magnitude;
           }
         });
-      }
 
-      // Detect gyroscope events (optional - for display only)
-      if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', (event) => {
-          const alpha = event.alpha || 0;
-          const beta = event.beta || 0;
-          const gamma = event.gamma || 0;
+          const { alpha, beta, gamma } = event;
 
+          // Update display for gyroscope data
           document.getElementById('gyro-alpha').textContent = alpha.toFixed(2);
           document.getElementById('gyro-beta').textContent = beta.toFixed(2);
           document.getElementById('gyro-gamma').textContent = gamma.toFixed(2);
+
+          // Check if the device is flipping rapidly
+          if (Math.abs(beta) > rotationThreshold || Math.abs(gamma) > rotationThreshold) {
+            document.getElementById('alert-message').textContent = 'Rapid flipping detected!';
+          }
         });
+      } else {
+        alert("DeviceMotionEvent and DeviceOrientationEvent are not supported on this device.");
       }
     }
 
-    // Automatically request permission if needed on page load
-    document.addEventListener("DOMContentLoaded", () => {
-      if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        document.getElementById('request-permission').style.display = 'block';
-        document.getElementById('request-permission').addEventListener('click', requestPermission);
-      } else {
-        startMotionTracking();
-      }
-    });
+    // Check if permission is needed
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      document.getElementById('request-permission').style.display = 'block';
+      document.getElementById('request-permission').onclick = requestPermission;
+    } else {
+      startMotionTracking();
+    }
   </script>
 </body>
 </html>
