@@ -6,7 +6,7 @@
   <title>Fall Detection</title>
 </head>
 <body>
-  <h1>Fall Dsetection</h1>
+  <h1>Fall Detection</h1>
   
   <h2>Accelerometer</h2>
   <p>X: <span id="accel-x">0</span></p>
@@ -26,13 +26,13 @@
 
     // Firebase configuration
     var firebaseConfig = {
-  apiKey: "AIzaSyDjcy8zJ9paOMEKS9FY7rbqAmBModNM6qs",
-  authDomain: "tracc-7c485.firebaseapp.com",
-  projectId: "tracc-7c485",
-  storageBucket: "tracc-7c485.firebasestorage.app",
-  messagingSenderId: "199806161150",
-  appId: "1:199806161150:web:dc1a274571d4c4cf22d5af",
-  measurementId: "G-6LLS7YCL8F"
+   apiKey: "AIzaSyDjcy8zJ9paOMEKS9FY7rbqAmBModNM6qs",
+    authDomain: "tracc-7c485.firebaseapp.com",
+    projectId: "tracc-7c485",
+    storageBucket: "tracc-7c485.firebasestorage.app",
+    messagingSenderId: "199806161150",
+    appId: "1:199806161150:web:dc1a274571d4c4cf22d5af",
+    measurementId: "G-6LLS7YCL8F"
     };
     
     // Initialize Firebase
@@ -40,11 +40,13 @@
     var database = firebase.database();
 
     // Threshold values for fall detection
-    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration
-    const IMPACT_THRESHOLD = -10;    // Impact threshold
+    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration in m/s²
+    const IMPACT_THRESHOLD = 15;    // Impact threshold in m/s²
 
     let inFreeFall = false;
+    let dropDetected = false;
 
+    // Request permission for iOS devices
     function requestPermission() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
@@ -61,56 +63,53 @@
       }
     }
 
+    // Start motion tracking
     function startMotionTracking() {
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
           const acceleration = event.accelerationIncludingGravity;
-
           if (acceleration) {
             const x = acceleration.x || 0;
             const y = acceleration.y || 0;
             const z = acceleration.z || 0;
 
+            // Update the displayed accelerometer values
             document.getElementById('accel-x').textContent = x.toFixed(2);
             document.getElementById('accel-y').textContent = y.toFixed(2);
             document.getElementById('accel-z').textContent = z.toFixed(2);
 
+            // Calculate total acceleration
             const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
 
+            // Check for free fall
             if (totalAcceleration < FREE_FALL_THRESHOLD) {
               inFreeFall = true;
-            } else if (inFreeFall && totalAcceleration > IMPACT_THRESHOLD) {
+            }
+
+            // Check for impact after free fall
+            if (inFreeFall && totalAcceleration > IMPACT_THRESHOLD) {
               inFreeFall = false;
-              handleFallDetected(x, y, z);
+              dropDetected = true;
+              document.getElementById('alert-message').textContent = 'Fall Detected!';
+              
+              // Update Firebase and reset after alert
+              database.ref('fall_detection').set({ fall_detected: 1 }, (error) => {
+                if (error) {
+                  alert('Error sending data to Firebase.');
+                } else {
+                  alert(`Fall detected data sent successfully: fall_detected=1`);
+                  // Reset to monitoring
+                  document.getElementById('alert-message').textContent = 'Status: Monitoring...';
+                  database.ref('fall_detection').set({ fall_detected: 0 });
+                  dropDetected = false;
+                }
+              });
             }
           }
         });
       } else {
         alert('DeviceMotionEvent is not supported on this device.');
       }
-    }
-
-    function handleFallDetected(x, y, z) {
-      const alertMessage = `Fall detected! Accelerometer values:\nX: ${x.toFixed(2)}\nY: ${y.toFixed(2)}\nZ: ${z.toFixed(2)}`;
-      
-      // Update Firebase with fall_detected = 1
-      database.ref('fall_status').set({ fall_detected: 1 })
-        .then(() => {
-          alert(alertMessage);
-          resetToMonitoring();
-        })
-        .catch((error) => console.error('Error updating Firebase:', error));
-    }
-
-    function resetToMonitoring() {
-      document.getElementById('alert-message').textContent = 'Status: Monitoring...';
-      
-      // Reset Firebase fall_detected status to 0
-      database.ref('fall_status').set({ fall_detected: 0 })
-        .then(() => {
-          console.log('Status reset to monitoring.');
-        })
-        .catch((error) => console.error('Error resetting Firebase status:', error));
     }
   </script>
 </body>
