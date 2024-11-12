@@ -3,76 +3,68 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Drop Detection</title>
+  <title>Fall Detection</title>
 </head>
 <body>
-  <h1>Accelerometer Drop Detection</h1>
-  <p>X: <span id="accel-x">0</span></p>
-  <p>Y: <span id="accel-y">0</span></p>
-  <p>Z: <span id="accel-z">0</span></p>
-  <p id="alert-message" style="color: red;"></p>
+  <h1>Fall Detection</h1>
+  <p id="fall-status" style="color: red;">Status: Monitoring...</p>
 
-  <button id="request-permission" style="display: none;">Enable Motion</button>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
   <script>
-    function requestPermission() {
-      if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission()
-          .then((response) => {
-            if (response === 'granted') {
-              startMotionTracking();
-            } else {
-              alert('Permission denied');
-            }
-          })
-          .catch(console.error);
+    let model;
+    
+    async function loadModel() {
+      model = await ort.InferenceSession.create('path/to/model.onnx');
+      console.log("ONNX model loaded successfully.");
+    }
+    
+    async function checkForFall(inputData) {
+      const tensor = new ort.Tensor('float32', inputData, [1, inputData.length]);
+      const feeds = { input: tensor };
+      const results = await model.run(feeds);
+      const output = results.output.data[0]; // Assuming binary classification output
+      
+      if (output > 0.5) {
+        document.getElementById('fall-status').textContent = "Status: Fall Detected!";
+        alert("Fall detected!");
       } else {
-        startMotionTracking();
+        document.getElementById('fall-status').textContent = "Status: No Fall Detected.";
       }
     }
 
-    function startMotionTracking() {
-      const threshold = 15; // Adjust threshold as needed for sensitivity
-      let dropDetected = false;
+    function startMonitoring() {
+      if (window.DeviceMotionEvent && window.DeviceOrientationEvent) {
+        let accelData = [];
+        let gyroData = [];
 
-      if (window.DeviceMotionEvent) {
+        // Capture accelerometer data
         window.addEventListener('devicemotion', (event) => {
           const acceleration = event.accelerationIncludingGravity;
           if (acceleration) {
-            const x = acceleration.x || 0;
-            const y = acceleration.y || 0;
-            const z = acceleration.z || 0;
-
-            // Display accelerometer values
-            document.getElementById('accel-x').textContent = x.toFixed(2);
-            document.getElementById('accel-y').textContent = y.toFixed(2);
-            document.getElementById('accel-z').textContent = z.toFixed(2);
-
-            // Calculate total acceleration (ignoring sign)
-            const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
-
-            // Check for free fall (very low acceleration) followed by impact (very high acceleration)
-            if (totalAcceleration < 0.5) {
-              dropDetected = true;
-            } else if (dropDetected && totalAcceleration > threshold) {
-              document.getElementById('alert-message').textContent = "Drop detected!";
-              alert("The phone was likely dropped!");
-              dropDetected = false;
-            }
+            accelData = [acceleration.x, acceleration.y, acceleration.z];
           }
         });
+
+        // Capture gyroscope data
+        window.addEventListener('deviceorientation', (event) => {
+          gyroData = [event.alpha, event.beta, event.gamma];
+        });
+
+        // Monitor data at intervals and pass to model
+        setInterval(async () => {
+          if (accelData.length && gyroData.length) {
+            const inputData = [...accelData, ...gyroData];
+            await checkForFall(inputData);
+          }
+        }, 500); // Adjust interval time as needed
       } else {
-        alert("Accelerometer is not supported on this device.");
+        alert("Device motion/orientation not supported on this device.");
       }
     }
 
-    // Request permission on iOS or start directly on Android
-    if (typeof DeviceMotionEvent.requestPermission === 'function') {
-      document.getElementById('request-permission').style.display = 'block';
-      document.getElementById('request-permission').addEventListener('click', requestPermission);
-    } else {
-      startMotionTracking();
-    }
+    // Load model and start monitoring when ready
+    loadModel().then(startMonitoring);
   </script>
 </body>
 </html>
