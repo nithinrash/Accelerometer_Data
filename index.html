@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enhanced Fall Detection with Flip Detection</title>
+  <title>Fall Detection with Fast Movement</title>
 </head>
 <body>
-  <h1>Fall Detection with Flip Detection</h1>
+  <h1>Fall Detection</h1>
   
   <h2>Accelerometer</h2>
   <p>X: <span id="accel-x">0</span></p>
@@ -23,14 +23,6 @@
   <button id="request-permission" style="display: none;">Enable Motion</button>
 
   <script>
-    const FREE_FALL_THRESHOLD = 1;  // Near zero acceleration in m/s²
-    const ROTATION_THRESHOLD = 3;   // Rotation rate threshold in rad/s
-    const IMPACT_THRESHOLD = 20;    // Impact spike in m/s²
-
-    let inFreeFall = false;
-    let dropDetected = false;
-
-    // Request permission for iOS devices
     function requestPermission() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
@@ -48,66 +40,66 @@
     }
 
     function startMotionTracking() {
+      const accelerationThreshold = 15;  // Detect significant acceleration
+      const rotationThreshold = 5;      // Detect rapid rotation (adjust as needed)
+      let fallDetected = false;
+
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
-          const accel = event.accelerationIncludingGravity;
-          const x = accel.x || 0;
-          const y = accel.y || 0;
-          const z = accel.z || 0;
+          const acceleration = event.accelerationIncludingGravity;
+          const rotation = event.rotationRate;
 
-          // Calculate total acceleration magnitude
-          const totalAccel = Math.sqrt(x * x + y * y + z * z);
+          if (acceleration && rotation) {
+            // Get accelerometer values
+            const x = acceleration.x || 0;
+            const y = acceleration.y || 0;
+            const z = acceleration.z || 0;
 
-          // Display accelerometer values
-          document.getElementById('accel-x').textContent = x.toFixed(2);
-          document.getElementById('accel-y').textContent = y.toFixed(2);
-          document.getElementById('accel-z').textContent = z.toFixed(2);
+            // Get gyroscope values (rotation rates)
+            const alpha = rotation.alpha || 0;
+            const beta = rotation.beta || 0;
+            const gamma = rotation.gamma || 0;
 
-          // Check for free fall (near-zero total acceleration)
-          if (totalAccel < FREE_FALL_THRESHOLD) {
-            inFreeFall = true;
-            document.getElementById('alert-message').textContent = 'Status: Free fall detected!';
-          } else if (inFreeFall && totalAccel > IMPACT_THRESHOLD) {
-            // If previously in free fall and now there's a spike in acceleration, assume impact
-            dropDetected = true;
-            document.getElementById('alert-message').textContent = 'Alert: Fall detected!';
-            alert("Fall detected!");
-            inFreeFall = false;  // Reset free fall status
-          } else {
-            // Reset if no significant event
-            inFreeFall = false;
+            // Display accelerometer values
+            document.getElementById('accel-x').textContent = x.toFixed(2);
+            document.getElementById('accel-y').textContent = y.toFixed(2);
+            document.getElementById('accel-z').textContent = z.toFixed(2);
+
+            // Display gyroscope values
+            document.getElementById('gyro-alpha').textContent = alpha.toFixed(2);
+            document.getElementById('gyro-beta').textContent = beta.toFixed(2);
+            document.getElementById('gyro-gamma').textContent = gamma.toFixed(2);
+
+            // Calculate total acceleration (magnitude)
+            const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+            
+            // Detect fast movement by checking acceleration and rotation rate
+            if (totalAcceleration > accelerationThreshold || Math.abs(alpha) > rotationThreshold || Math.abs(beta) > rotationThreshold || Math.abs(gamma) > rotationThreshold) {
+              if (!fallDetected) {
+                fallDetected = true;
+                document.getElementById('alert-message').textContent = 'Fall Detected!';
+                document.getElementById('alert-message').style.color = 'red';
+                alert('Fall Detected!');
+              }
+            } else {
+              if (fallDetected) {
+                fallDetected = false;
+                document.getElementById('alert-message').textContent = 'Status: Monitoring...';
+                document.getElementById('alert-message').style.color = 'black';
+              }
+            }
           }
         });
-      }
-
-      // Gyroscope event listener for rotation detection
-      if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', (event) => {
-          const alpha = event.alpha || 0;
-          const beta = event.beta || 0;
-          const gamma = event.gamma || 0;
-
-          // Display gyroscope values
-          document.getElementById('gyro-alpha').textContent = alpha.toFixed(2);
-          document.getElementById('gyro-beta').textContent = beta.toFixed(2);
-          document.getElementById('gyro-gamma').textContent = gamma.toFixed(2);
-
-          // Check for high rotation rate (flipping detection)
-          if (Math.abs(alpha) > ROTATION_THRESHOLD ||
-              Math.abs(beta) > ROTATION_THRESHOLD ||
-              Math.abs(gamma) > ROTATION_THRESHOLD) {
-            document.getElementById('alert-message').textContent = 'Status: Flipping detected!';
-          }
-        });
+      } else {
+        alert('DeviceMotionEvent is not supported on this device.');
       }
     }
 
-    // Show the button on iOS
+    // Start tracking if permission is granted (for iOS)
     if (typeof DeviceMotionEvent.requestPermission === 'function') {
-      document.getElementById('request-permission').style.display = 'block';
-      document.getElementById('request-permission').onclick = requestPermission;
+      requestPermission();
     } else {
-      startMotionTracking();
+      startMotionTracking();  // Start motion tracking directly for other devices
     }
   </script>
 </body>
