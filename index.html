@@ -21,8 +21,26 @@
   <button id="request-permission" style="display: none;">Enable Motion</button>
 
   <script>
+    // Request permission for iOS
+    function requestPermission() {
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission()
+          .then((response) => {
+            if (response === 'granted') {
+              startMotionTracking();
+            } else {
+              alert('Permission denied');
+            }
+          })
+          .catch(console.error);
+      } else {
+        // Start directly for devices that don't need permission
+        startMotionTracking();
+      }
+    }
+
     function startMotionTracking() {
-      // Accelerometer
+      // Accelerometer data
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', (event) => {
           const acceleration = event.acceleration;
@@ -36,34 +54,24 @@
         alert('Accelerometer is not supported on this device.');
       }
 
-      // Gyroscope
+      // Gyroscope data
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', (event) => {
-          const alpha = event.alpha;   // Rotation around Z-axis (in degrees)
-          const beta = event.beta;     // Rotation around X-axis (in degrees)
-          const gamma = event.gamma;   // Rotation around Y-axis (in degrees)
-
-          // Display gyroscope values
-          document.getElementById('gyro-alpha').textContent = alpha?.toFixed(2) || '0';
-          document.getElementById('gyro-beta').textContent = beta?.toFixed(2) || '0';
-          document.getElementById('gyro-gamma').textContent = gamma?.toFixed(2) || '0';
+          document.getElementById('gyro-alpha').textContent = event.alpha?.toFixed(2) || '0';
+          document.getElementById('gyro-beta').textContent = event.beta?.toFixed(2) || '0';
+          document.getElementById('gyro-gamma').textContent = event.gamma?.toFixed(2) || '0';
         });
       } else {
         alert('Gyroscope is not supported on this device.');
       }
     }
 
-    // Start motion tracking after user interaction on mobile (for permission)
-    document.getElementById('request-permission').addEventListener('click', function() {
-      startMotionTracking();
-      this.style.display = 'none'; // Hide button after permission is granted
-    });
-
-    // If permission is required, show a button to start tracking
-    if (window.DeviceMotionEvent || window.DeviceOrientationEvent) {
+    // Check if permission is needed
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
       document.getElementById('request-permission').style.display = 'block';
+      document.getElementById('request-permission').addEventListener('click', requestPermission);
     } else {
-      startMotionTracking(); // Start tracking if permissions aren't needed
+      startMotionTracking(); // Start tracking directly if no permission is needed
     }
   </script>
 </body>
