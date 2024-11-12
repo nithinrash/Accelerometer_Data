@@ -3,76 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Drop Detection</title>
+  <title>Fall Detection Using ONNX</title>
 </head>
 <body>
-  <h1>Accelerometer Drop Detection</h1>
+  <h1>Fall Detection Using Accelerometer and Gyroscope</h1>
   <p>X: <span id="accel-x">0</span></p>
   <p>Y: <span id="accel-y">0</span></p>
   <p>Z: <span id="accel-z">0</span></p>
-  <p id="alert-message" style="color: red;"></p>
+  <p>Alpha: <span id="gyro-alpha">0</span></p>
+  <p>Beta: <span id="gyro-beta">0</span></p>
+  <p>Gamma: <span id="gyro-gamma">0</span></p>
+  <p id="alert-message" style="color: red;">Status: Monitoring...</p>
 
-  <button id="request-permission" style="display: none;">Enable Motion</button>
-
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
   <script>
+    let model;
+
+    async function loadModel() {
+      try {
+        model = await ort.InferenceSession.create('path/to/model.onnx');
+        console.log("Model loaded successfully");
+      } catch (error) {
+        console.error("Failed to load model:", error);
+      }
+    }
+
     function requestPermission() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission()
-          .then((response) => {
-            if (response === 'granted') {
-              startMotionTracking();
-            } else {
-              alert('Permission denied');
-            }
-          })
-          .catch(console.error);
+        DeviceMotionEvent.requestPermission().then((response) => {
+          if (response === 'granted') {
+            startMotionTracking();
+          } else {
+            alert('Permission denied');
+          }
+        }).catch(console.error);
       } else {
         startMotionTracking();
       }
     }
 
     function startMotionTracking() {
-      const threshold = 15; // Adjust threshold as needed for sensitivity
-      let dropDetected = false;
+      if (!model) {
+        console.error("Model not loaded.");
+        return;
+      }
 
-      if (window.DeviceMotionEvent) {
-        window.addEventListener('devicemotion', (event) => {
-          const acceleration = event.accelerationIncludingGravity;
-          if (acceleration) {
-            const x = acceleration.x || 0;
-            const y = acceleration.y || 0;
-            const z = acceleration.z || 0;
+      window.addEventListener('devicemotion', handleDeviceMotion);
+      window.addEventListener('deviceorientation', handleDeviceOrientation);
+    }
 
-            // Display accelerometer values
-            document.getElementById('accel-x').textContent = x.toFixed(2);
-            document.getElementById('accel-y').textContent = y.toFixed(2);
-            document.getElementById('accel-z').textContent = z.toFixed(2);
+    function handleDeviceMotion(event) {
+      const { x, y, z } = event.accelerationIncludingGravity || {};
 
-            // Calculate total acceleration (ignoring sign)
-            const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+      // Display accelerometer values
+      document.getElementById('accel-x').textContent = x ? x.toFixed(2) : "0";
+      document.getElementById('accel-y').textContent = y ? y.toFixed(2) : "0";
+      document.getElementById('accel-z').textContent = z ? z.toFixed(2) : "0";
 
-            // Check for free fall (very low acceleration) followed by impact (very high acceleration)
-            if (totalAcceleration < 0.5) {
-              dropDetected = true;
-            } else if (dropDetected && totalAcceleration > threshold) {
-              document.getElementById('alert-message').textContent = "Drop detected!";
-              alert("The phone was likely dropped!");
-              dropDetected = false;
-            }
-          }
-        });
-      } else {
-        alert("Accelerometer is not supported on this device.");
+      // Run model prediction with accelerometer and gyroscope data
+      runPrediction(x, y, z);
+    }
+
+    function handleDeviceOrientation(event) {
+      const { alpha, beta, gamma } = event || {};
+
+      // Display gyroscope values
+      document.getElementById('gyro-alpha').textContent = alpha ? alpha.toFixed(2) : "0";
+      document.getElementById('gyro-beta').textContent = beta ? beta.toFixed(2) : "0";
+      document.getElementById('gyro-gamma').textContent = gamma ? gamma.toFixed(2) : "0";
+    }
+
+    async function runPrediction(x, y, z) {
+      if (!x || !y || !z) return;
+
+      // Prepare input tensor based on the model’s expected format
+      const inputTensor = new ort.Tensor('float32', [x, y, z], [1, 3]);
+
+      try {
+        const results = await model.run({ input: inputTensor });
+        const output = results.output.data[0];  // Adjust key based on model's output
+
+        // Check if output indicates a fall and update alert message
+        if (output > 0.5) { // Assuming output > 0.5 implies fall detected
+          document.getElementById('alert-message').textContent = "Fall detected!";
+        } else {
+          document.getElementById('alert-message').textContent = "Status: Monitoring...";
+        }
+      } catch (error) {
+        console.error("Failed to run prediction:", error);
       }
     }
 
-    // Request permission on iOS or start directly on Android
-    if (typeof DeviceMotionEvent.requestPermission === 'function') {
-      document.getElementById('request-permission').style.display = 'block';
-      document.getElementById('request-permission').addEventListener('click', requestPermission);
-    } else {
-      startMotionTracking();
-    }
+    // Load the model and request permission when the page loads
+    loadModel();
+    document.getElementById('request-permission').onclick = requestPermission;
   </script>
 </body>
 </html>
